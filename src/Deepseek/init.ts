@@ -1,36 +1,46 @@
-/* eslint-disable valid-jsdoc */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from "axios";
+import { config } from "dotenv";
 
+// Load environment variables from the .env file
+config({ path: ".env" });
+
+// Retrieve DeepSeek configuration from Firebase functions config or environment variables
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
-const DEEPSEEK_API_URL = process.env.DEEPSEEK_API_URL;
+const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
 
-if (!DEEPSEEK_API_KEY || !DEEPSEEK_API_URL) {
-  throw new Error(
-    "DeepSeek API key or URL is missing in environment variables",
-  );
-}
+// eslint-disable-next-line require-jsdoc
+export async function analyzeText(text: string): Promise<string> {
+  if (!DEEPSEEK_API_KEY) {
+    throw new Error("DeepSeek API key is not configured");
+  }
 
-/**
- * 调用 DeepSeek API 分析文本
- * @param text 需要分析的文本
- * @return DeepSeek API 的响应数据
- */
-export const analyzeText = async (text: string) => {
   try {
     const response = await axios.post(
-      `${DEEPSEEK_API_URL}/analyze`, // DeepSeek 的 API 端点
-      { text },
+      DEEPSEEK_API_URL,
+      {
+        model: "deepseek-chat",
+        messages: [
+          { role: "system", content: "You are a helpful assistant." },
+          { role: "user", content: text },
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
+      },
       {
         headers: {
           Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
           "Content-Type": "application/json",
         },
+        timeout: 15000,
       },
     );
 
-    return response.data;
-  } catch (error) {
-    console.error("DeepSeek API 调用失败:", error);
-    throw new Error("Failed to call DeepSeek API");
+    return response.data.choices[0].message.content;
+  } catch (error: any) {
+    // Enhance the error with additional context
+    const apiError = new Error(`DeepSeek API Error: ${error.message}`);
+    (apiError as any).response = error.response;
+    throw apiError;
   }
-};
+}

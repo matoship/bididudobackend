@@ -1,23 +1,32 @@
-import { onUserCreated } from "firebase-functions/v2/auth"; // Use v2 auth trigger
-import { logger } from "firebase-functions"; // Use logger from functions
-import { UserRecord } from "firebase-admin/auth"; // Import UserRecord from firebase-admin
-import { createUserProfile } from "../APIs/Users/user";
+import * as functions from "firebase-functions/v1"; // Use Firebase Functions v1
+import * as admin from "firebase-admin"; // Firebase Admin SDK
+import { UserRecord } from "firebase-admin/auth"; // UserRecord type
+import { createUserProfile } from "../APIs/Users/user"; // Your custom function
 
-export const createUserProfileOnAuthSignUp = onUserCreated(async (event) => {
-  const user: UserRecord = event.data; // Get user record
-  const userId = user.uid;
-  const userName = user.displayName || `user_${userId.slice(0, 8)}`;
-  const icon = user.photoURL || "";
+// Initialize Firebase Admin if not already initialized
+if (admin.apps.length === 0) {
+  admin.initializeApp();
+}
 
-  if (!userId) {
-    logger.error("User ID is missing");
-    return;
-  }
+export const createUserProfileOnAuthSignUp = functions.auth
+  .user()
+  .onCreate(async (user: UserRecord) => {
+    const userId = user.uid;
+    const userName = user.displayName || `user_${userId.slice(0, 8)}`;
+    const icon = user.photoURL || "";
 
-  try {
-    await createUserProfile(userId, userName, icon);
-    logger.info(`User profile created successfully for: ${userId}`);
-  } catch (error) {
-    logger.error("Error creating user profile for:", userId, error);
-  }
-});
+    if (!userId) {
+      functions.logger.error("User ID is missing");
+      return;
+    }
+
+    try {
+      await createUserProfile(userId, userName, icon);
+      functions.logger.info(`User profile created successfully for: ${userId}`);
+    } catch (error) {
+      functions.logger.error(
+        `Error creating user profile for ${userId}:`,
+        error,
+      );
+    }
+  });

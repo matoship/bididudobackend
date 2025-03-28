@@ -15,7 +15,9 @@ import {
 import { createUser, getUser, updateUser, deleteUser } from "./APIs/Users/user";
 import { getJoinedEvents } from "./APIs/Users/joinedEvents";
 import { analyzeText } from "./Deepseek/init"; // 引入 DeepSeek 服务
-
+interface AnalyzeRequest {
+  text: string;
+}
 // eslint-disable-next-line new-cap
 const router = Router();
 
@@ -44,20 +46,30 @@ router.post("/users/update", updateUser);
 router.delete("/users/", deleteUser);
 router.get("/users/joinedEvents", getJoinedEvents);
 
-// DeepSeek 路由
 router.post("/deepseek/analyze", async (req, res) => {
-  const { text } = req.body;
-
-  if (!text) {
-    return res.status(400).json({ error: "Text is required" });
-  }
-
   try {
-    const result = await analyzeText(text); // 调用 DeepSeek 服务
-    res.status(200).json(result);
-  } catch (error) {
-    console.error("DeepSeek API 调用失败:", error);
-    res.status(500).json({ error: "Failed to call DeepSeek API" });
+    const { text } = req.body as AnalyzeRequest;
+
+    if (!text || typeof text !== "string") {
+      return res.status(400).json({
+        error: "Invalid request: 'text' must be a non-empty string",
+      });
+    }
+
+    const result = await analyzeText(text);
+    return res.status(200).json({ result });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    console.error("DeepSeek API Error:", error);
+
+    // Handle different error types
+    const statusCode = error.response?.status || 500;
+    const message =
+      error.response?.data?.error?.message ||
+      error.message ||
+      "Failed to process request";
+
+    return res.status(statusCode).json({ error: message });
   }
 });
 
